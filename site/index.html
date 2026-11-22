@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Doorbuster Board</title>
+<meta name="description" content="The best Black Friday deals, updated automatically every two hours.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky filter rail over a dense card grid; price-tag stickers carry the discount. */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --fg:#141824; --muted:#5d6475; --line:#dfe2ea;
+  --accent:#1f3fd1; --accent-ink:#ffffff; --tag:#ffd23f; --tag-ink:#1b1400; --good:#0f7a43; --hot:#d62e4c;
+  --display:"Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d111c; --surface:#161b29; --fg:#eef0f6; --muted:#9aa2b6; --line:#273047;
+  --accent:#7e95ff; --accent-ink:#0d111c; --tag:#ffd23f; --tag-ink:#1b1400; --good:#4fd18e; --hot:#ff6b84; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d111c; --surface:#161b29; --fg:#eef0f6; --muted:#9aa2b6; --line:#273047;
+  --accent:#7e95ff; --accent-ink:#0d111c; --tag:#ffd23f; --tag-ink:#1b1400; --good:#4fd18e; --hot:#ff6b84; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{padding-block:28px 18px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,6vw,56px);line-height:1;margin:6px 0 10px;letter-spacing:-.02em;text-wrap:balance}
+h1 .tagword{background:var(--tag);color:var(--tag-ink);padding:0 .18em;border-radius:6px;display:inline-block;transform:rotate(-2deg)}
+.sub{color:var(--muted);max-width:62ch;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:16px;font-variant-numeric:tabular-nums}
+.meta b{font-family:var(--display);font-size:22px;display:block;color:var(--fg)}
+.meta span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.count b{color:var(--accent)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.rail .wrap{display:flex;flex-direction:column;gap:10px;padding-block:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input[type=search],select{font:inherit;font-size:14px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+input[type=search]{flex:1 1 240px;min-width:0}
+select{flex:0 1 auto}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{font:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 12px}
+.chip small{color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip[aria-pressed=true] small{color:inherit;opacity:.7}
+.chip.saved[aria-pressed=true]{background:var(--hot);border-color:var(--hot);color:#fff}
+main{padding-block:20px 48px}
+.resultline{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.reset{font:inherit;font-size:13px;background:none;border:0;color:var(--accent);cursor:pointer;padding:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;min-width:0}
+.card .head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.store{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.cat{font-size:12px;color:var(--muted)}
+.sticker{font-family:var(--display);font-weight:800;font-size:17px;background:var(--tag);color:var(--tag-ink);border-radius:8px;padding:3px 9px;white-space:nowrap;transform:rotate(3deg);font-variant-numeric:tabular-nums}
+.sticker.soft{background:transparent;color:var(--muted);border:1px dashed var(--line);font-size:13px;font-weight:500;transform:none}
+.title{font-weight:600;font-size:15px;line-height:1.3;margin:0;overflow-wrap:anywhere}
+.price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.price .now{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.01em}
+.price .was{color:var(--muted);text-decoration:line-through;font-size:14px}
+.price .save{color:var(--good);font-size:13px;font-weight:600}
+.note{font-size:13px;color:var(--muted);margin:0}
+.note.flag{color:var(--hot);font-weight:600}
+.foot{margin-top:auto;display:flex;gap:8px;align-items:center}
+.go{flex:1;text-align:center;text-decoration:none;font-weight:600;font-size:14px;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:9px 12px}
+.go.alt{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.star{font:inherit;font-size:18px;line-height:1;width:40px;height:38px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.star[aria-pressed=true]{color:var(--hot);border-color:var(--hot)}
+.hotmark{position:absolute;top:-9px;left:14px;background:var(--hot);color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+.empty{padding:48px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+footer{border-top:1px solid var(--line);padding-block:20px 40px;color:var(--muted);font-size:13px}
+footer a{color:var(--accent)}
+footer ul{padding-left:18px;margin:6px 0 0}
+@media (max-width:520px){.grid{grid-template-columns:1fr}.price .now{font-size:24px}}
+@media (prefers-reduced-motion:reduce){.sticker,h1 .tagword{transform:none}}
+.thumb{width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;border-radius:10px;max-width:100%}
+body{margin:0}
+.live{display:inline-flex;align-items:center;gap:6px}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+.srcbad{color:var(--hot)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Black Friday · Friday, Nov 27, 2026</div>
+    <h1>Every deal worth <span class="tagword">grabbing</span></h1>
+    <p class="sub">Current Black Friday prices from Amazon, Best Buy, Walmart, Target and brand stores, pulled from public deal feeds and roundups and refreshed every two hours. Filter by what you want, sort by the biggest cut, and star the ones you're eyeing.</p>
+    <div class="meta">
+      <div><b id="cd">–</b><span>until Black Friday</span></div>
+      <div class="count"><b id="mDeals">0</b><span>deals</span></div>
+      <div><b id="mStores">0</b><span>stores</span></div>
+      <div><b id="mUpd" class="live">–</b><span>last updated</span></div>
+      <div><b id="mTop">0%</b><span>deepest cut</span></div>
+    </div>
+  </header>
+</div>
+
+<div class="rail">
+  <div class="wrap">
+    <div class="row">
+      <input id="q" type="search" placeholder="Search deals, e.g. AirPods, Dyson, Switch" aria-label="Search deals">
+      <select id="store" aria-label="Store"><option value="">All stores</option></select>
+      <select id="min" aria-label="Minimum discount">
+        <option value="0">Any discount</option><option value="20">20%+ off</option><option value="30">30%+ off</option><option value="40">40%+ off</option><option value="50">50%+ off</option>
+      </select>
+      <select id="max" aria-label="Maximum price">
+        <option value="">Any price</option><option value="25">Under $25</option><option value="50">Under $50</option><option value="100">Under $100</option><option value="250">Under $250</option><option value="500">Under $500</option><option value="1000">Under $1,000</option>
+      </select>
+      <select id="sort" aria-label="Sort">
+        <option value="pick">Top picks first</option><option value="new">Newest</option><option value="pct">Biggest % off</option><option value="save">Biggest $ savings</option><option value="low">Lowest price</option><option value="high">Highest price</option>
+      </select>
+    </div>
+    <div class="chips" id="cats" role="toolbar" aria-label="Categories"></div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="resultline"><span id="rl"></span><button class="reset" id="reset" type="button">Clear filters</button></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>No deals match those filters. Try a lower discount or a different category.</div>
+</main>
+
+<footer class="wrap">
+  <div>Black Friday prices move fast and some sell out, so confirm the price at the store before you buy. "View at" buttons go straight to the store; "See deal" buttons open the post that reported the deal.</div>
+  <div style="margin-top:10px">Sources in this update:</div>
+  <ul id="srcs"></ul>
+</footer>
+
+<script>
+let DEALS=[];
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"":"$"+(n%1?n.toFixed(2):n.toLocaleString("en-US"));
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const safeUrl=u=>/^https?:\/\//i.test(u||"")?u:"#";
+const store={get(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let saved=new Set(store.get("bf26-saved",[]));
+const state={cat:"All",q:"",store:"",min:0,max:"",sort:"pick"};
+const CAT_ORDER=["Apple","TV & Audio","Computers","Phones","Gaming","Accessories","Home","Kitchen","Toys","Beauty","Fashion","Outdoors","Other"];
+let cats=["All"];
+let updatedAt=null;
+
+function ago(iso){const m=Math.round((Date.now()-new Date(iso))/6e4);if(m<1)return"just now";if(m<60)return m+"m ago";const h=Math.round(m/60);return h<48?h+"h ago":Math.round(h/24)+"d ago"}
+function tick(){
+  const bf=new Date(2026,10,27,0,0,0), ms=bf-new Date();
+  $("cd").textContent=ms<=0?"It's on":`${Math.floor(ms/864e5)}d ${Math.floor(ms%864e5/36e5)}h`;
+  if(updatedAt)$("mUpd").textContent=ago(updatedAt);
+}
+
+function load(data){
+  updatedAt=data.updated;
+  DEALS=data.deals.map((d,i)=>{
+    const pct=d.p!=null&&d.w?Math.round((1-d.p/d.w)*100):(d.d||0);
+    return {...d,id:i,pct,save:d.p!=null&&d.w?d.w-d.p:0,ts:Date.parse(d.at)||0};
+  });
+  cats=["All",...CAT_ORDER.filter(c=>DEALS.some(d=>d.c===c))];
+  const stores=[...new Set(DEALS.map(d=>d.s))].sort();
+  const sel=$("store"),cur=state.store;
+  sel.length=1;
+  stores.forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=`${s} (${DEALS.filter(d=>d.s===s).length})`;sel.append(o)});
+  sel.value=stores.includes(cur)?cur:"";state.store=sel.value;
+  $("mDeals").textContent=DEALS.length;
+  $("mStores").textContent=stores.length;
+  $("mTop").textContent=Math.max(0,...DEALS.filter(d=>d.pct<95).map(d=>d.pct))+"%";
+  $("srcs").innerHTML=data.sources.map(s=>`<li><a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">${esc(s.name)}</a>: ${s.ok?s.count+" deals":`<span class="srcbad">unavailable this run</span>`}</li>`).join("");
+  tick();render();
+}
+
+function renderChips(base){
+  $("cats").innerHTML="";
+  const mk=(label,count,pressed,cls,fn)=>{const b=document.createElement("button");b.type="button";b.className="chip "+(cls||"");b.setAttribute("aria-pressed",pressed);b.innerHTML=`${esc(label)}<small>${count}</small>`;b.onclick=fn;$("cats").append(b)};
+  cats.forEach(c=>mk(c,c==="All"?base.length:base.filter(d=>d.c===c).length,state.cat===c,"",()=>{state.cat=c;render()}));
+  mk("\u2605 Saved",saved.size,state.cat==="Saved","saved",()=>{state.cat=state.cat==="Saved"?"All":"Saved";render()});
+}
+
+const bonus=d=>(d.n&&/low|best|doorbuster/i.test(d.n)?8:0);
+function filtered(){
+  const q=state.q.trim().toLowerCase();
+  const base=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!q||(d.t+" "+d.s+" "+d.c+" "+(d.n||"")).toLowerCase().includes(q)));
+  const list=state.cat==="All"?base:state.cat==="Saved"?base.filter(d=>saved.has(d.t+"|"+d.s)):base.filter(d=>d.c===state.cat);
+  const S={
+    pick:(a,b)=>(b.hot||0)-(a.hot||0)||(b.pct+bonus(b))-(a.pct+bonus(a))||b.ts-a.ts,
+    new:(a,b)=>b.ts-a.ts,pct:(a,b)=>b.pct-a.pct,save:(a,b)=>b.save-a.save,
+    low:(a,b)=>(a.p??1e9)-(b.p??1e9),high:(a,b)=>(b.p??-1)-(a.p??-1)};
+  return {base,list:[...list].sort(S[state.sort]||S.pick)};
+}
+
+function card(d){
+  const key=d.t+"|"+d.s;
+  const sticker=d.p!=null&&d.w?`<span class="sticker">-${d.pct}%</span>`:d.d?`<span class="sticker">${d.p==null?"Up to ":""}${d.d}% off</span>`:`<span class="sticker soft">${d.curated?"Sale":"New"}</span>`;
+  const price=d.p!=null?`<div class="price"><span class="now">${d.p===0?"Free":(d.w||!d.curated?"":"From ")+fmt(d.p)}</span>${d.w?`<span class="was">${fmt(d.w)}</span><span class="save">Save ${fmt(Math.round(d.save*100)/100)}</span>`:""}</div>`:"";
+  const flag=d.n&&/low|best|doorbuster/i.test(d.n);
+  const label=d.direct?`View at ${esc(d.s)}`:`See deal on ${esc(d.src)}`;
+  const when=d.curated?"":`<p class="note">${esc(d.src)} \u00b7 ${ago(d.at)}</p>`;
+  return `<article class="card">${d.hot?'<span class="hotmark">Top pick</span>':""}
+    <div class="head"><div><div class="store">${esc(d.s)}</div><div class="cat">${esc(d.c)}</div></div>${sticker}</div>
+    ${d.img?`<img class="thumb" loading="lazy" alt="" src="${esc(safeUrl(d.img))}" onerror="this.remove()">`:""}
+    <h3 class="title">${esc(d.t)}</h3>${price}
+    ${d.n?`<p class="note ${flag?"flag":""}">${esc(d.n)}</p>`:""}${when}
+    <div class="foot"><a class="go ${d.direct?"":"alt"}" href="${esc(safeUrl(d.u))}" target="_blank" rel="noopener">${label}</a><button class="star" type="button" aria-label="Save deal" aria-pressed="${saved.has(key)}" data-k="${esc(key)}">${saved.has(key)?"\u2605":"\u2606"}</button></div></article>`;
+}
+
+const PAGE=120;let shown=PAGE;
+function render(){
+  const {base,list}=filtered();
+  renderChips(base);
+  $("grid").innerHTML=list.slice(0,shown).map(card).join("")+(list.length>shown?`<button class="chip" id="more" type="button" style="grid-column:1/-1;justify-self:center">Show ${Math.min(PAGE,list.length-shown)} more</button>`:"");
+  $("empty").hidden=list.length>0;
+  $("empty").textContent=state.cat==="Saved"?"You haven't starred any deals yet. Tap \u2606 on a card to save it here.":"No deals match those filters. Try a lower discount or a different category.";
+  $("rl").textContent=`Showing ${Math.min(shown,list.length)} of ${list.length} matching deals`;
+  store.set("bf26-filters",state);
+}
+$("grid").addEventListener("click",e=>{
+  if(e.target.id==="more"){shown+=PAGE;render();return}
+  const b=e.target.closest(".star");if(!b)return;
+  const k=b.dataset.k;saved.has(k)?saved.delete(k):saved.add(k);store.set("bf26-saved",[...saved]);render();
+});
+const bind=(id,key,num)=>$(id).addEventListener(id==="q"?"input":"change",e=>{state[key]=num?+e.target.value:e.target.value;shown=PAGE;render()});
+bind("q","q");bind("store","store");bind("min","min",1);bind("max","max");bind("sort","sort");
+$("reset").onclick=()=>{Object.assign(state,{cat:"All",q:"",store:"",min:0,max:"",sort:"pick"});["q","store","max"].forEach(i=>$(i).value="");$("min").value="0";$("sort").value="pick";shown=PAGE;render()};
+const prev=store.get("bf26-filters",null);
+if(prev){Object.assign(state,prev,{q:""});$("min").value=String(state.min);$("max").value=state.max;$("sort").value=state.sort}
+
+async function refresh(){
+  try{const r=await fetch("deals.json?ts="+Date.now(),{cache:"no-store"});if(!r.ok)throw 0;load(await r.json())}
+  catch(e){if(!DEALS.length)$("rl").textContent="Couldn't load deals. Check your connection and reload the page."}
+}
+refresh();setInterval(tick,60000);setInterval(refresh,30*60000);
+</script>
+</body>
+</html>
