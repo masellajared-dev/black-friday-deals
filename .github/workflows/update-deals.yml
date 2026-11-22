@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -29,6 +29,12 @@ jobs:
           node-version: 20
       - name: Fetch latest deals
         run: node scripts/fetch-deals.mjs
+      - name: Save price history
+        run: |
+          git config user.name "deals-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history.json
+          git diff --cached --quiet || (git commit -m "Update price history" && (git push || (git pull --rebase && git push) || echo "::warning::Could not save price history this run"))
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

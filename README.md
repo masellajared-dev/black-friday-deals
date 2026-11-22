@@ -21,3 +21,14 @@ python3 -m http.server -d site 8000
 - Run an update now: Actions tab → "Update deals and publish" → Run workflow.
 
 If a feed is down or blocks the runner, that run skips it and the page lists it as unavailable.
+
+## Is it actually a good price?
+
+Each deal gets a verdict badge:
+
+- **Great**: lower than any price we've tracked for that product, or the deal post calls it an all-time low.
+- **Good**: matches its best tracked price, the post says it matches a previous low, or it's 40%+ off.
+- **OK**: under 15% off.
+- **Skip**: we've seen it at least 5% cheaper in the last few weeks.
+
+Every run records each product's price (across all stores) in `data/history.json`, which the workflow commits back to the repo, so the comparison gets better the longer it runs.
