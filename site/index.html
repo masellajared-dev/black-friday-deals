@@ -82,6 +82,8 @@ body{margin:0}
 .live{display:inline-flex;align-items:center;gap:6px}
 .live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
 .srcbad{color:var(--hot)}
+.elsewhere{margin:16px 0 0;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:14px}
+.elsewhere a{color:var(--accent);font-weight:600}
 .verdict{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;padding:8px 10px;border-radius:10px;background:var(--vbg);color:var(--fg)}
 .verdict b{flex:none;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--vc);color:var(--vink)}
 .v-great{--vc:var(--good);--vink:#fff;--vbg:color-mix(in srgb,var(--good) 12%,transparent)}
@@ -140,6 +142,7 @@ body{margin:0}
 <main class="wrap">
   <div class="resultline"><span id="rl"></span><button class="reset" id="reset" type="button">Clear filters</button></div>
   <div class="grid" id="grid"></div>
+  <p class="elsewhere" id="elsewhere" hidden></p>
   <div class="empty" id="empty" hidden>No deals match those filters. Try a lower discount or a different category.</div>
 </main>
 
@@ -198,10 +201,31 @@ function renderChips(base){
   mk("\u2605 Saved",saved.size,state.cat==="Saved","saved",()=>{state.cat=state.cat==="Saved"?"All":"Saved";render()});
 }
 
+// Search: every word must appear somewhere, in any order. Sizes like 65 inch / 65" / 65-inch all match.
+const norm=s=>(" "+String(s||"").toLowerCase()+" ")
+  .replace(/(\d+(?:\.\d+)?)\s*(?:"|”|''|-?\s*(?:inch(?:es)?|in\b))/g,"$1in")
+  .replace(/[’']/g,"").replace(/[^a-z0-9.+]+/g," ");
+const STOP=new Set(["the","a","an","for","and","of","on","with","deal","deals","sale","black","friday","cheap","best"]);
+const stem=w=>w.length>3&&w.endsWith("s")&&!w.endsWith("ss")?w.slice(0,-1):w;
+const SYN={tv:["tv","television"],television:["tv","television"],laptop:["laptop","notebook","chromebook"],headphone:["headphone","earbud","airpod"],airpod:["airpod"],ps5:["ps5","playstation"],playstation:["ps5","playstation"],xbox:["xbox"],switch:["switch","nintendo"]};
+function terms(q){return norm(q).split(" ").filter(w=>w&&!STOP.has(w)).map(stem)}
+function hay(d){return d._h||(d._h=" "+norm(d.t+" "+d.s+" "+d.c+" "+(d.n||"")).split(" ").map(stem).join(" ")+" ")}
+const hasTerm=(h,t)=>(SYN[t]||[t]).some(x=>h.includes(" "+x)||(x.length>2&&h.includes(x)));
+function matchCount(d,ts){const h=hay(d);return ts.filter(t=>hasTerm(h,t)).length}
+let partial=false;
 const bonus=d=>(d.n&&/low|best|doorbuster/i.test(d.n)?8:0);
 function filtered(){
-  const q=state.q.trim().toLowerCase();
-  const base=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!state.value||(VRANK[d.v]||0)>=VRANK[state.value])&&(!q||(d.t+" "+d.s+" "+d.c+" "+(d.n||"")).toLowerCase().includes(q)));
+  const ts=terms(state.q);
+  const pre=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!state.value||(VRANK[d.v]||0)>=VRANK[state.value]));
+  let base=ts.length?pre.filter(d=>matchCount(d,ts)===ts.length):pre;
+  partial=false;
+  if(ts.length>1&&!base.length){
+    // Nothing matches every word: fall back to deals matching most of them.
+    const words=ts.filter(t=>/[a-z]/.test(t)&&!/^\d+in$/.test(t));
+    const scored=pre.filter(d=>words.some(t=>hasTerm(hay(d),t))).map(d=>[d,matchCount(d,ts)]);
+    const best=Math.max(0,...scored.map(x=>x[1]));
+    if(best>=Math.ceil(ts.length/2)){base=scored.filter(x=>x[1]===best).map(x=>x[0]);partial=true}
+  }
   const list=state.cat==="All"?base:state.cat==="Saved"?base.filter(d=>saved.has(d.t+"|"+d.s)):base.filter(d=>d.c===state.cat);
   const S={
     value:(a,b)=>(VRANK[b.v]||0)-(VRANK[a.v]||0)||b.pct-a.pct,
@@ -233,8 +257,16 @@ function render(){
   renderChips(base);
   $("grid").innerHTML=list.slice(0,shown).map(card).join("")+(list.length>shown?`<button class="chip" id="more" type="button" style="grid-column:1/-1;justify-self:center">Show ${Math.min(PAGE,list.length-shown)} more</button>`:"");
   $("empty").hidden=list.length>0;
-  $("empty").textContent=state.cat==="Saved"?"You haven't starred any deals yet. Tap \u2606 on a card to save it here.":"No deals match those filters. Try a lower discount or a different category.";
-  $("rl").textContent=`Showing ${Math.min(shown,list.length)} of ${list.length} matching deals`;
+  $("empty").textContent=state.cat==="Saved"?"You haven't starred any deals yet. Tap \u2606 on a card to save it here.":"No deals match that. Try fewer words or clear the other filters.";
+  const q=state.q.trim();
+  $("rl").textContent=partial?`No exact matches for "${q}". Showing ${list.length} close matches`:`Showing ${Math.min(shown,list.length)} of ${list.length} matching deals`;
+  const out=$("elsewhere");
+  if(q&&(partial||list.length<4)){
+    const e=encodeURIComponent(q);
+    out.innerHTML=`${list.length?"Want more?":"Not on our board right now."} Search <a href="https://slickdeals.net/newsearch.php?q=${e}&searcharea=deals&searchin=first" target="_blank" rel="noopener">Slickdeals</a>, <a href="https://www.google.com/search?tbm=shop&q=${e}" target="_blank" rel="noopener">Google Shopping</a> or <a href="https://www.dealnews.com/search?q=${e}" target="_blank" rel="noopener">DealNews</a> for "${esc(q)}".`;
+    out.hidden=false;
+    $("empty").hidden=true;
+  } else out.hidden=true;
   store.set("bf26-filters",state);
 }
 $("grid").addEventListener("click",e=>{

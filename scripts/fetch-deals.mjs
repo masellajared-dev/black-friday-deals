@@ -7,7 +7,12 @@ const FEEDS = [
   { name: "Slickdeals Popular", url: "https://slickdeals.net/newsearch.php?mode=popdeals&searcharea=deals&searchin=first&rss=1" },
   { name: "DealNews", url: "https://www.dealnews.com/?rss=1&sort=time" },
   { name: "9to5Toys", url: "https://9to5toys.com/feed/" },
-  { name: "Ben's Bargains", url: "https://www.bensbargains.com/rss.php" },
+  // Keyword searches widen coverage of popular categories beyond the front page.
+  ...[
+    ["TVs", "tv"], ["Video games", "video game"], ["PS5", "ps5"], ["Xbox", "xbox"], ["Nintendo Switch", "nintendo switch"],
+    ["Laptops", "laptop"], ["Headphones", "headphones"], ["Apple", "apple"], ["Vacuums", "vacuum"],
+    ["Kitchen", "air fryer"], ["Toys", "lego"], ["Smartwatches", "smartwatch"],
+  ].map(([label, q]) => ({ name: `Slickdeals: ${label}`, url: `https://slickdeals.net/newsearch.php?q=${encodeURIComponent(q)}&searcharea=deals&searchin=first&rss=1` })),
 ];
 
 const CURATED_SOURCES = [
@@ -18,7 +23,7 @@ const CURATED_SOURCES = [
 ];
 
 const MAX_AGE_DAYS = 5;
-const MAX_LIVE = 400;
+const MAX_LIVE = 900;
 
 const BRANDS = ["Dyson", "Ninja", "KitchenAid", "Anker", "Logitech", "Bose", "Sony", "JBL", "Samsung", "Apple", "Dell", "HP", "Lenovo", "Nike", "Adidas"];
 const STORES = [
