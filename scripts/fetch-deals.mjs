@@ -157,7 +157,8 @@ function recordPrice(history, d, day) {
   const last = h.pts[h.pts.length - 1];
   if (!last || last[0] !== day || last[1] !== d.p || last[2] !== d.s) h.pts.push([day, d.p, d.s]);
   if (h.pts.length > MAX_POINTS) h.pts.splice(0, h.pts.length - MAX_POINTS);
-  return { before, firstDay, days: new Set(h.pts.map(x => x[0])).size };
+  const high = before ? Math.max(...h.pts.slice(0, -1).map(x => x[1])) : null;
+  return { before, high, firstDay, days: new Set(h.pts.map(x => x[0])).size };
 }
 
 // Turns what we know into a verdict: great / good / ok / meh, with a one-line reason.
@@ -174,7 +175,8 @@ function verdict(d, hist) {
   if (low) return { v: "great", why: "Reported as an all-time low", ...extra };
   if (match) return { v: "good", why: "Matches its previous best price", ...extra };
   const pct = d.p != null && d.w ? Math.round((1 - d.p / d.w) * 100) : d.d || 0;
-  if (prev && days >= 2) return { v: "good", why: `Same as the lowest we've tracked`, ...extra };
+  // A price that has never moved tells us nothing; only call it good if it was higher before and came back down.
+  if (prev && days >= 2 && hist.high > d.p * 1.05) return { v: "good", why: `Back down to its lowest tracked price (was up to ${usd(hist.high)})`, ...extra };
   if (pct >= 40) return { v: "good", why: `${pct}% below the regular price` };
   if (pct > 0 && pct < 15) return { v: "ok", why: "Only a small discount off the regular price" };
   return null;
