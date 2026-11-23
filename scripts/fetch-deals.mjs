@@ -132,6 +132,56 @@ async function fetchFeed(feed) {
   } finally { clearTimeout(timer); }
 }
 
+// Phrases deal writers use when a price beats or matches past prices.
+const SIGNALS = [
+  ["low", /\b(all[- ]time low|lowest (price )?(ever|on record|we'?ve (ever )?(seen|tracked))|record low|new low|best[- ]ever (price|deal|discount)|never been (this )?(cheaper|lower)|lowest price (yet|to date))\b/i],
+  ["match", /\b(matches?( the| its)? (prime day|previous|all[- ]time|lowest|best)|returns? to( the| its)? (low|lowest|all[- ]time)|(back|down) to( its)? (low|lowest)|same (price|deal) as (prime day|last))\b/i],
+];
+function priceSignal(text) {
+  const hit = SIGNALS.find(([, re]) => re.test(text));
+  return hit ? hit[0] : undefined;
+}
+
+// Price history: one entry per product (across stores), updated every run and committed back by the workflow.
+const HISTORY_URL = new URL("../data/history.json", import.meta.url);
+const MAX_POINTS = 120;
+async function loadHistory() {
+  try { return JSON.parse(await readFile(HISTORY_URL, "utf8")); } catch { return {}; }
+}
+function recordPrice(history, d, day) {
+  if (d.p == null || d.p <= 0) return null;
+  const k = keyOf(d.t);
+  const h = history[k] || (history[k] = { t: d.t, pts: [] });
+  const before = h.pts.length ? h.pts.reduce((a, b) => (b[1] < a[1] ? b : a)) : null;
+  const firstDay = h.pts.length ? h.pts[0][0] : day;
+  const last = h.pts[h.pts.length - 1];
+  if (!last || last[0] !== day || last[1] !== d.p || last[2] !== d.s) h.pts.push([day, d.p, d.s]);
+  if (h.pts.length > MAX_POINTS) h.pts.splice(0, h.pts.length - MAX_POINTS);
+  return { before, firstDay, days: new Set(h.pts.map(x => x[0])).size };
+}
+
+// Turns what we know into a verdict: great / good / ok / meh, with a one-line reason.
+function verdict(d, hist) {
+  const days = hist ? hist.days : 0;
+  const prev = hist && hist.before;
+  if (prev && days >= 2 && d.p != null) {
+    if (d.p < prev[1] * 0.98) return { v: "great", why: `Lowest we've tracked (previous low ${usd(prev[1])} at ${prev[2]})`, lo: prev[1], loAt: prev[2], loDay: prev[0] };
+    if (d.p > prev[1] * 1.05) return { v: "meh", why: `Was ${usd(prev[1])} at ${prev[2]} on ${shortDay(prev[0])}`, lo: prev[1], loAt: prev[2], loDay: prev[0] };
+  }
+  const low = d.sig === "low" || /all[- ]time low|record low|best[- ]ever|new low|lowest price/i.test(d.n || "");
+  const match = d.sig === "match" || /match/i.test(d.n || "");
+  const extra = prev && days >= 2 ? { lo: prev[1], loAt: prev[2], loDay: prev[0] } : {};
+  if (low) return { v: "great", why: "Reported as an all-time low", ...extra };
+  if (match) return { v: "good", why: "Matches its previous best price", ...extra };
+  const pct = d.p != null && d.w ? Math.round((1 - d.p / d.w) * 100) : d.d || 0;
+  if (prev && days >= 2) return { v: "good", why: `Same as the lowest we've tracked`, ...extra };
+  if (pct >= 40) return { v: "good", why: `${pct}% below the regular price` };
+  if (pct > 0 && pct < 15) return { v: "ok", why: "Only a small discount off the regular price" };
+  return null;
+}
+const usd = n => "$" + (n % 1 ? n.toFixed(2) : n.toLocaleString("en-US"));
+const shortDay = day => new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
 const keyOf = t => t.toLowerCase().replace(/\$[\d.,]+/g, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 8).join(" ");
 
 async function main() {
@@ -152,6 +202,7 @@ async function main() {
         p: p ?? undefined, w: w ?? undefined, d: pct && !(p != null && w) ? pct : undefined,
         u: it.link, src: feed.name, at: it.date.toISOString(), img: it.img,
         hot: feed.hot && pct >= 40 ? 1 : undefined,
+        sig: priceSignal(it.title + " " + it.desc),
       });
       n++;
     }
@@ -171,12 +222,22 @@ async function main() {
   });
   sources.push({ name: "Hand-picked roundups (Nov 22)", url: CURATED_SOURCES[0].url, ok: true, count: curated.length });
 
-  const deals = [...liveDeals.map(d => ({ ...d, direct: false })), ...curated];
+  const history = await loadHistory();
+  const day = new Date(now).toISOString().slice(0, 10);
+  const deals = [...liveDeals.map(d => ({ ...d, direct: false })), ...curated].map(d => {
+    const hist = recordPrice(history, d, day);
+    const v = verdict(d, hist);
+    const { sig, ...rest } = d;
+    return v ? { ...rest, ...v } : rest;
+  });
+  await writeFile(HISTORY_URL, JSON.stringify(history));
+  const counts = deals.reduce((a, d) => (a[d.v || "none"] = (a[d.v || "none"] || 0) + 1, a), {});
+  console.log("Verdicts:", JSON.stringify(counts), "| products tracked:", Object.keys(history).length);
   const out = { updated: new Date(now).toISOString(), sources, deals };
   await mkdir(new URL("../site/", import.meta.url), { recursive: true });
   await writeFile(new URL("../site/deals.json", import.meta.url), JSON.stringify(out));
   console.log(`Wrote ${deals.length} deals (${liveDeals.length} live, ${curated.length} curated).`);
 }
 
-export { parseFeed, extractPrices, findStore, findCategory, cleanTitle };
+export { parseFeed, extractPrices, findStore, findCategory, cleanTitle, priceSignal, verdict, recordPrice };
 if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e); process.exit(1); });

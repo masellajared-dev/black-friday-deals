@@ -82,6 +82,14 @@ body{margin:0}
 .live{display:inline-flex;align-items:center;gap:6px}
 .live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
 .srcbad{color:var(--hot)}
+.verdict{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;padding:8px 10px;border-radius:10px;background:var(--vbg);color:var(--fg)}
+.verdict b{flex:none;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--vc);color:var(--vink)}
+.v-great{--vc:var(--good);--vink:#fff;--vbg:color-mix(in srgb,var(--good) 12%,transparent)}
+.v-good{--vc:var(--accent);--vink:var(--accent-ink);--vbg:color-mix(in srgb,var(--accent) 10%,transparent)}
+.v-ok{--vc:var(--muted);--vink:var(--bg);--vbg:color-mix(in srgb,var(--muted) 10%,transparent)}
+.v-meh{--vc:var(--hot);--vink:#fff;--vbg:color-mix(in srgb,var(--hot) 10%,transparent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:14px}
+.legend span b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:999px;background:var(--vc);color:var(--vink);margin-right:4px}
 </style>
 </head>
 <body>
@@ -98,6 +106,12 @@ body{margin:0}
       <div><b id="mUpd" class="live">–</b><span>last updated</span></div>
       <div><b id="mTop">0%</b><span>deepest cut</span></div>
     </div>
+    <div class="legend">
+      <span class="v-great"><b>Great</b>lowest price we know of</span>
+      <span class="v-good"><b>Good</b>matches its best price or 40%+ off</span>
+      <span class="v-ok"><b>OK</b>small discount</span>
+      <span class="v-meh"><b>Skip</b>it's been cheaper recently</span>
+    </div>
   </header>
 </div>
 
@@ -112,8 +126,11 @@ body{margin:0}
       <select id="max" aria-label="Maximum price">
         <option value="">Any price</option><option value="25">Under $25</option><option value="50">Under $50</option><option value="100">Under $100</option><option value="250">Under $250</option><option value="500">Under $500</option><option value="1000">Under $1,000</option>
       </select>
+      <select id="value" aria-label="Deal quality">
+        <option value="">Any deal quality</option><option value="good">Good or better</option><option value="great">Great only</option>
+      </select>
       <select id="sort" aria-label="Sort">
-        <option value="pick">Top picks first</option><option value="new">Newest</option><option value="pct">Biggest % off</option><option value="save">Biggest $ savings</option><option value="low">Lowest price</option><option value="high">Highest price</option>
+        <option value="pick">Top picks first</option><option value="value">Best value</option><option value="new">Newest</option><option value="pct">Biggest % off</option><option value="save">Biggest $ savings</option><option value="low">Lowest price</option><option value="high">Highest price</option>
       </select>
     </div>
     <div class="chips" id="cats" role="toolbar" aria-label="Categories"></div>
@@ -140,7 +157,10 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const safeUrl=u=>/^https?:\/\//i.test(u||"")?u:"#";
 const store={get(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let saved=new Set(store.get("bf26-saved",[]));
-const state={cat:"All",q:"",store:"",min:0,max:"",sort:"pick"};
+const state={cat:"All",q:"",store:"",min:0,max:"",value:"",sort:"pick"};
+const VRANK={great:3,good:2,ok:1,meh:-1};
+const VLABEL={great:"Great",good:"Good",ok:"OK",meh:"Skip"};
+const dayFmt=d=>new Date(d+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
 const CAT_ORDER=["Apple","TV & Audio","Computers","Phones","Gaming","Accessories","Home","Kitchen","Toys","Beauty","Fashion","Outdoors","Other"];
 let cats=["All"];
 let updatedAt=null;
@@ -181,10 +201,11 @@ function renderChips(base){
 const bonus=d=>(d.n&&/low|best|doorbuster/i.test(d.n)?8:0);
 function filtered(){
   const q=state.q.trim().toLowerCase();
-  const base=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!q||(d.t+" "+d.s+" "+d.c+" "+(d.n||"")).toLowerCase().includes(q)));
+  const base=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!state.value||(VRANK[d.v]||0)>=VRANK[state.value])&&(!q||(d.t+" "+d.s+" "+d.c+" "+(d.n||"")).toLowerCase().includes(q)));
   const list=state.cat==="All"?base:state.cat==="Saved"?base.filter(d=>saved.has(d.t+"|"+d.s)):base.filter(d=>d.c===state.cat);
   const S={
-    pick:(a,b)=>(b.hot||0)-(a.hot||0)||(b.pct+bonus(b))-(a.pct+bonus(a))||b.ts-a.ts,
+    value:(a,b)=>(VRANK[b.v]||0)-(VRANK[a.v]||0)||b.pct-a.pct,
+    pick:(a,b)=>(b.hot||0)-(a.hot||0)||(VRANK[b.v]||0)-(VRANK[a.v]||0)||(b.pct+bonus(b))-(a.pct+bonus(a))||b.ts-a.ts,
     new:(a,b)=>b.ts-a.ts,pct:(a,b)=>b.pct-a.pct,save:(a,b)=>b.save-a.save,
     low:(a,b)=>(a.p??1e9)-(b.p??1e9),high:(a,b)=>(b.p??-1)-(a.p??-1)};
   return {base,list:[...list].sort(S[state.sort]||S.pick)};
@@ -201,7 +222,8 @@ function card(d){
     <div class="head"><div><div class="store">${esc(d.s)}</div><div class="cat">${esc(d.c)}</div></div>${sticker}</div>
     ${d.img?`<img class="thumb" loading="lazy" alt="" src="${esc(safeUrl(d.img))}" onerror="this.remove()">`:""}
     <h3 class="title">${esc(d.t)}</h3>${price}
-    ${d.n?`<p class="note ${flag?"flag":""}">${esc(d.n)}</p>`:""}${when}
+    ${d.v?`<div class="verdict v-${esc(d.v)}"><b>${VLABEL[d.v]||""}</b><span>${esc(d.why)}${d.lo&&d.v!=="meh"&&!/previous low/.test(d.why||"")?`. Lowest we've tracked: ${fmt(d.lo)} at ${esc(d.loAt)} (${dayFmt(d.loDay)})`:""}</span></div>`:""}
+    ${d.n&&!(d.v==="great"&&/low|best/i.test(d.n))?`<p class="note ${flag?"flag":""}">${esc(d.n)}</p>`:""}${when}
     <div class="foot"><a class="go ${d.direct?"":"alt"}" href="${esc(safeUrl(d.u))}" target="_blank" rel="noopener">${label}</a><button class="star" type="button" aria-label="Save deal" aria-pressed="${saved.has(key)}" data-k="${esc(key)}">${saved.has(key)?"\u2605":"\u2606"}</button></div></article>`;
 }
 
@@ -221,10 +243,10 @@ $("grid").addEventListener("click",e=>{
   const k=b.dataset.k;saved.has(k)?saved.delete(k):saved.add(k);store.set("bf26-saved",[...saved]);render();
 });
 const bind=(id,key,num)=>$(id).addEventListener(id==="q"?"input":"change",e=>{state[key]=num?+e.target.value:e.target.value;shown=PAGE;render()});
-bind("q","q");bind("store","store");bind("min","min",1);bind("max","max");bind("sort","sort");
-$("reset").onclick=()=>{Object.assign(state,{cat:"All",q:"",store:"",min:0,max:"",sort:"pick"});["q","store","max"].forEach(i=>$(i).value="");$("min").value="0";$("sort").value="pick";shown=PAGE;render()};
+bind("q","q");bind("store","store");bind("min","min",1);bind("max","max");bind("sort","sort");bind("value","value");
+$("reset").onclick=()=>{Object.assign(state,{cat:"All",q:"",store:"",min:0,max:"",value:"",sort:"pick"});["q","store","max","value"].forEach(i=>$(i).value="");$("min").value="0";$("sort").value="pick";shown=PAGE;render()};
 const prev=store.get("bf26-filters",null);
-if(prev){Object.assign(state,prev,{q:""});$("min").value=String(state.min);$("max").value=state.max;$("sort").value=state.sort}
+if(prev){Object.assign(state,prev,{q:""});$("min").value=String(state.min);$("max").value=state.max;$("value").value=state.value||"";$("sort").value=state.sort}
 
 async function refresh(){
   try{const r=await fetch("deals.json?ts="+Date.now(),{cache:"no-store"});if(!r.ok)throw 0;load(await r.json())}
