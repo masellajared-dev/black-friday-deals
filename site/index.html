@@ -226,7 +226,7 @@ let partial=false;
 const bonus=d=>(d.n&&/low|best|doorbuster/i.test(d.n)?8:0);
 function filtered(){
   const ts=terms(state.q);
-  const pre=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||(d.p!=null&&d.p<=+state.max))&&(!state.value||(VRANK[d.v]||0)>=VRANK[state.value]));
+  const pre=DEALS.filter(d=>(!state.store||d.s===state.store)&&d.pct>=state.min&&(!state.max||d.sw||(d.p!=null&&d.p<=+state.max))&&(!state.value||d.sw||(VRANK[d.v]||0)>=VRANK[state.value]));
   let base=ts.length?pre.filter(d=>matchCount(d,ts)===ts.length):pre;
   partial=false;
   if(ts.length>1&&!base.length){
@@ -268,7 +268,10 @@ function render(){
   renderChips(base);
   $("grid").innerHTML=list.slice(0,shown).map(card).join("")+(list.length>shown?`<button class="chip" id="more" type="button" style="grid-column:1/-1;justify-self:center">Show ${Math.min(PAGE,list.length-shown)} more</button>`:"");
   $("empty").hidden=list.length>0;
-  $("empty").textContent=state.cat==="Saved"?"You haven't starred any deals yet. Tap \u2606 on a card to save it here.":"No deals match that. Try fewer words or clear the other filters.";
+  const hidden=state.store?DEALS.filter(d=>d.s===state.store).length:0;
+  if(state.cat==="Saved")$("empty").textContent="You haven't starred any deals yet. Tap \u2606 on a card to save it here.";
+  else if(hidden&&!list.length)$("empty").innerHTML=`Your other filters are hiding all ${hidden} ${esc(state.store)} deal${hidden>1?"s":""}. <button class="reset" type="button" id="showstore">Show all ${esc(state.store)} deals</button>`;
+  else $("empty").textContent="No deals match that. Try fewer words or clear the other filters.";
   const q=state.q.trim();
   $("rl").textContent=partial?`No exact matches for "${q}". Showing ${list.length} close matches`:`Showing ${Math.min(shown,list.length)} of ${list.length} matching deals`;
   const out=$("elsewhere");
@@ -290,7 +293,9 @@ $("grid").addEventListener("click",e=>{
   const k=b.dataset.k;saved.has(k)?saved.delete(k):saved.add(k);store.set("bf26-saved",[...saved]);render();
 });
 const bind=(id,key,num)=>$(id).addEventListener(id==="q"?"input":"change",e=>{state[key]=num?+e.target.value:e.target.value;shown=PAGE;render()});
-bind("q","q");bind("store","store");bind("min","min",1);bind("max","max");bind("sort","sort");bind("value","value");
+bind("q","q");bind("store","store");
+$("store").addEventListener("change",()=>{if(state.cat!=="Saved"&&state.cat!=="Store-wide"){state.cat="All";render()}});
+$("empty").addEventListener("click",e=>{if(e.target.id!=="showstore")return;Object.assign(state,{cat:"All",q:"",min:0,max:"",value:""});$("q").value="";$("min").value="0";$("max").value="";$("value").value="";shown=PAGE;render()});bind("min","min",1);bind("max","max");bind("sort","sort");bind("value","value");
 $("reset").onclick=()=>{Object.assign(state,{cat:"All",q:"",store:"",min:0,max:"",value:"",sort:"pick"});["q","store","max","value"].forEach(i=>$(i).value="");$("min").value="0";$("sort").value="pick";shown=PAGE;render()};
 const prev=store.get("bf26-filters",null);
 if(prev){Object.assign(state,prev,{q:""});$("min").value=String(state.min);$("max").value=state.max;$("value").value=state.value||"";$("sort").value=state.sort}
