@@ -188,7 +188,7 @@ function load(data){
     return {...d,id:i,pct,save:d.p!=null&&d.w?d.w-d.p:0,ts:Date.parse(d.at)||0};
   });
   cats=["All",...CAT_ORDER.filter(c=>DEALS.some(d=>d.c===c))];
-  const stores=[...new Set(DEALS.map(d=>d.s))].sort();
+  const stores=[...new Set(DEALS.map(d=>d.s))].sort((a,b)=>a.localeCompare(b,"en",{sensitivity:"base"}));
   const sel=$("store"),cur=state.store;
   sel.length=1;
   stores.forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=`${s} (${DEALS.filter(d=>d.s===s).length})`;sel.append(o)});

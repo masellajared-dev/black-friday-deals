@@ -266,6 +266,11 @@ async function main() {
   });
   sources.push({ name: "Hand-picked roundups (Nov 22–26)", url: CURATED_SOURCES[0].url, ok: true, count: curated.length });
 
+  // One spelling per store, so "adidas" (curated) and "Adidas" (feeds) land under the same store filter.
+  const STORE_KEY = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const canon = new Map(STORES.map(x => [STORE_KEY(STORE_ALIASES[x] || x), STORE_ALIASES[x] || x]));
+  for (const d of [...liveDeals, ...curated]) { const k = STORE_KEY(d.s); if (canon.has(k)) d.s = canon.get(k); else canon.set(k, d.s); }
+
   const history = await loadHistory();
   const day = new Date(now).toISOString().slice(0, 10);
   const deals = [...liveDeals.map(d => ({ ...d, direct: false })), ...curated].map(d => {
