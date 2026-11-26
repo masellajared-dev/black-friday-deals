@@ -100,7 +100,7 @@ body{margin:0}
   <header class="top">
     <div class="eyebrow">Black Friday · Friday, Nov 27, 2026</div>
     <h1>Every deal worth <span class="tagword">grabbing</span></h1>
-    <p class="sub">Current Black Friday prices from Amazon, Best Buy, Walmart, Target and brand stores, pulled from public deal feeds and roundups and refreshed every two hours. Filter by what you want, sort by the biggest cut, and star the ones you're eyeing.</p>
+    <p class="sub">Current Black Friday prices on tech, home, clothing, beauty, sporting goods and travel from Amazon, Best Buy, Costco, Nike, Sephora, Ulta, Nordstrom and more, pulled from public deal feeds and roundups and refreshed every two hours. Filter by what you want, sort by the biggest cut, and star the ones you're eyeing.</p>
     <div class="meta">
       <div><b id="cd">–</b><span>until Black Friday</span></div>
       <div class="count"><b id="mDeals">0</b><span>deals</span></div>
@@ -164,7 +164,7 @@ const state={cat:"All",q:"",store:"",min:0,max:"",value:"",sort:"pick"};
 const VRANK={great:3,good:2,ok:1,meh:-1};
 const VLABEL={great:"Great",good:"Good",ok:"OK",meh:"Skip"};
 const dayFmt=d=>new Date(d+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
-const CAT_ORDER=["Apple","TV & Audio","Computers","Phones","Gaming","Accessories","Home","Kitchen","Toys","Beauty","Fashion","Outdoors","Other"];
+const CAT_ORDER=["Apple","TV & Audio","Computers","Phones","Gaming","Accessories","Home","Kitchen","Toys","Clothing","Beauty","Sporting Goods","Travel","Other"];
 let cats=["All"];
 let updatedAt=null;
 

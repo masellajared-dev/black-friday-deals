@@ -16,7 +16,7 @@ python3 -m http.server -d site 8000
 ## Change things
 
 - Add or remove feeds: edit `FEEDS` at the top of `scripts/fetch-deals.mjs`.
-- Update hand-picked deals: edit `data/curated.json` (`t` title, `s` store, `c` category, `p` price, `w` was, `d` percent for "up to" deals, `n` note, `u` direct link, `r` source index, `hot` top pick).
+- Update hand-picked deals: edit `data/curated.json` (`t` title, `s` store, `c` category, `p` price, `w` was, `d` percent for "up to" deals, `n` note, `u` direct link, `r` index into `CURATED_SOURCES` in the script, `at` date added, `hot` top pick). Categories: Apple, TV & Audio, Computers, Phones, Gaming, Accessories, Home, Kitchen, Toys, Clothing, Beauty, Sporting Goods, Travel.
 - Change the schedule: edit the `cron` line in `.github/workflows/update-deals.yml`.
 - Run an update now: Actions tab → "Update deals and publish" → Run workflow.
 
