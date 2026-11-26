@@ -48,6 +48,12 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
 .chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .chip[aria-pressed=true] small{color:inherit;opacity:.7}
 .chip.saved[aria-pressed=true]{background:var(--hot);border-color:var(--hot);color:#fff}
+.chip.sw{border-color:var(--tag);font-weight:600}
+.chip.sw[aria-pressed=true]{background:var(--tag);border-color:var(--tag);color:var(--tag-ink)}
+.swmark{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tag-ink);background:var(--tag);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.code{font:inherit;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;cursor:pointer;border:1.5px dashed var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);color:var(--fg);border-radius:10px;padding:8px 12px;font-size:14px;text-align:left}
+.code b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;letter-spacing:.05em;color:var(--accent)}
+.code span{font-size:12px;color:var(--muted);white-space:nowrap}
 main{padding-block:20px 48px}
 .resultline{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;color:var(--muted);font-size:13px;flex-wrap:wrap}
 .reset{font:inherit;font-size:13px;background:none;border:0;color:var(--accent);cursor:pointer;padding:0}
@@ -197,7 +203,11 @@ function load(data){
 function renderChips(base){
   $("cats").innerHTML="";
   const mk=(label,count,pressed,cls,fn)=>{const b=document.createElement("button");b.type="button";b.className="chip "+(cls||"");b.setAttribute("aria-pressed",pressed);b.innerHTML=`${esc(label)}<small>${count}</small>`;b.onclick=fn;$("cats").append(b)};
-  cats.forEach(c=>mk(c,c==="All"?base.length:base.filter(d=>d.c===c).length,state.cat===c,"",()=>{state.cat=c;render()}));
+  cats.forEach(c=>{
+    mk(c,c==="All"?base.length:base.filter(d=>d.c===c).length,state.cat===c,"",()=>{state.cat=c;render()});
+    const sw=base.filter(d=>d.sw).length;
+    if(c==="All"&&DEALS.some(d=>d.sw))mk("\u{1F3F7}\uFE0F Store-wide sales",sw,state.cat==="Store-wide","sw",()=>{state.cat=state.cat==="Store-wide"?"All":"Store-wide";render()});
+  });
   mk("\u2605 Saved",saved.size,state.cat==="Saved","saved",()=>{state.cat=state.cat==="Saved"?"All":"Saved";render()});
 }
 
@@ -226,7 +236,7 @@ function filtered(){
     const best=Math.max(0,...scored.map(x=>x[1]));
     if(best>=Math.ceil(ts.length/2)){base=scored.filter(x=>x[1]===best).map(x=>x[0]);partial=true}
   }
-  const list=state.cat==="All"?base:state.cat==="Saved"?base.filter(d=>saved.has(d.t+"|"+d.s)):base.filter(d=>d.c===state.cat);
+  const list=state.cat==="All"?base:state.cat==="Saved"?base.filter(d=>saved.has(d.t+"|"+d.s)):state.cat==="Store-wide"?base.filter(d=>d.sw):base.filter(d=>d.c===state.cat);
   const S={
     value:(a,b)=>(VRANK[b.v]||0)-(VRANK[a.v]||0)||b.pct-a.pct,
     pick:(a,b)=>(b.hot||0)-(a.hot||0)||(VRANK[b.v]||0)-(VRANK[a.v]||0)||(b.pct+bonus(b))-(a.pct+bonus(a))||b.ts-a.ts,
@@ -243,10 +253,11 @@ function card(d){
   const label=d.direct?`View at ${esc(d.s)}`:`See deal on ${esc(d.src)}`;
   const when=d.curated?"":`<p class="note">${esc(d.src)} \u00b7 ${ago(d.at)}</p>`;
   return `<article class="card">${d.hot?'<span class="hotmark">Top pick</span>':""}
-    <div class="head"><div><div class="store">${esc(d.s)}</div><div class="cat">${esc(d.c)}</div></div>${sticker}</div>
+    <div class="head"><div><div class="store">${esc(d.s)}${d.sw?'<span class="swmark">Store-wide</span>':""}</div><div class="cat">${esc(d.c)}</div></div>${sticker}</div>
     ${d.img?`<img class="thumb" loading="lazy" alt="" src="${esc(safeUrl(d.img))}" onerror="this.remove()">`:""}
     <h3 class="title">${esc(d.t)}</h3>${price}
     ${d.v?`<div class="verdict v-${esc(d.v)}"><b>${VLABEL[d.v]||""}</b><span>${esc(d.why)}${d.lo&&d.v!=="meh"&&!/previous low/.test(d.why||"")?`. Lowest we've tracked: ${fmt(d.lo)} at ${esc(d.loAt)} (${dayFmt(d.loDay)})`:""}</span></div>`:""}
+    ${d.code?`<button class="code" type="button" data-code="${esc(d.code)}" aria-label="Copy code ${esc(d.code)}"><span>Code</span><b>${esc(d.code)}</b><span class="cp">Tap to copy</span></button>`:""}
     ${d.n&&!(d.v==="great"&&/low|best/i.test(d.n))?`<p class="note ${flag?"flag":""}">${esc(d.n)}</p>`:""}${when}
     <div class="foot"><a class="go ${d.direct?"":"alt"}" href="${esc(safeUrl(d.u))}" target="_blank" rel="noopener">${label}</a><button class="star" type="button" aria-label="Save deal" aria-pressed="${saved.has(key)}" data-k="${esc(key)}">${saved.has(key)?"\u2605":"\u2606"}</button></div></article>`;
 }
@@ -271,6 +282,10 @@ function render(){
 }
 $("grid").addEventListener("click",e=>{
   if(e.target.id==="more"){shown+=PAGE;render();return}
+  const c=e.target.closest(".code");
+  if(c){const cp=c.querySelector(".cp"),done=()=>{cp.textContent="Copied";setTimeout(()=>cp.textContent="Tap to copy",1500)};
+    try{navigator.clipboard.writeText(c.dataset.code).then(done,()=>{cp.textContent="Select and copy"})}catch(err){cp.textContent="Select and copy"}
+    return}
   const b=e.target.closest(".star");if(!b)return;
   const k=b.dataset.k;saved.has(k)?saved.delete(k):saved.add(k);store.set("bf26-saved",[...saved]);render();
 });

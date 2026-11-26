@@ -40,6 +40,9 @@ const CURATED_SOURCES = [
   { name: "Costco Guides", url: "https://costcoguides.com/costco-black-friday-sale/" },
   { name: "NBC Select", url: "https://www.nbcnews.com/select/shopping/home-depot-black-friday-sale-2026-rcna611349" },
   { name: "Fortune", url: "https://fortune.com/article/best-black-friday-fitness-deals-2026/" },
+  { name: "MassLive", url: "https://shopping.yahoo.com/style/clothing/articles/65-off-during-abercrombie-fitch-143210350.html" },
+  { name: "Feminegra", url: "https://feminegra.com/15-sitewide-black-friday-sales-worth-shopping-in-2026-from-as-ever-to-fenty-beauty/" },
+  { name: "Forbes", url: "https://www.forbes.com/sites/forbes-personal-shopper/2026/11/26/best-black-friday-deals/" },
 ];
 
 const MAX_AGE_DAYS = 5;
@@ -138,6 +141,14 @@ function findStore(title, desc) {
   return brand || "Other";
 }
 
+// Store-wide sales ("40% off sitewide", "50% off everything") and promo codes ("w/ code SAVE20").
+const SITEWIDE = /\b(site-?wide|store-?wide|\d{1,2}%\s*off\s+(everything|(your\s+)?(entire|whole)\s+(order|purchase|site|store)|all\s+orders))\b/i;
+const isSitewide = title => SITEWIDE.test(title);
+function findCode(text) {
+  const m = text.match(/\b(?:[Pp]romo |[Cc]oupon |[Dd]iscount )?[Cc]ode:?\s+["“']?([A-Z0-9][A-Z0-9-]{3,19})\b/);
+  return m && /[A-Z]/.test(m[1]) ? m[1] : undefined;
+}
+
 const findCategory = (title, desc) => (CATEGORIES.find(([, re]) => re.test(title)) || CATEGORIES.find(([, re]) => re.test(desc)) || ["Other"])[0];
 
 function cleanTitle(t) {
@@ -191,6 +202,7 @@ function recordPrice(history, d, day) {
 
 // Turns what we know into a verdict: great / good / ok / meh, with a one-line reason.
 function verdict(d, hist) {
+  if (d.sw) return null; // Store-wide sales have no single price to judge.
   const days = hist ? hist.days : 0;
   const prev = hist && hist.before;
   if (prev && days >= 2 && d.p != null) {
@@ -233,6 +245,8 @@ async function main() {
         u: it.link, src: feed.name, at: it.date.toISOString(), img: it.img,
         hot: feed.hot && pct >= 40 ? 1 : undefined,
         sig: priceSignal(it.title + " " + it.desc),
+        sw: isSitewide(it.title) ? 1 : undefined,
+        code: findCode(it.title + " " + it.desc),
       });
       n++;
     }
@@ -269,5 +283,5 @@ async function main() {
   console.log(`Wrote ${deals.length} deals (${liveDeals.length} live, ${curated.length} curated).`);
 }
 
-export { parseFeed, extractPrices, findStore, findCategory, cleanTitle, priceSignal, verdict, recordPrice };
+export { parseFeed, extractPrices, isSitewide, findCode, findStore, findCategory, cleanTitle, priceSignal, verdict, recordPrice };
 if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e); process.exit(1); });
